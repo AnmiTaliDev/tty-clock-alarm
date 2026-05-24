@@ -50,10 +50,13 @@ jobs:
           PKG=$(find $GITHUB_WORKSPACE -name "*.pkg.tar.*" | head -n1)
           echo "Found: $PKG"
           BASENAME=$(basename "$PKG")
-          VERSION=$(echo "$BASENAME" | grep -oP '(?<=-git-)[\d\w.:]+(?=-aarch64)')
+          # Strip prefix and suffix, keeping epoch+version+pkgrel
+          VERSION=$(echo "$BASENAME" | sed 's/^tty-clock-git-//;s/-aarch64\.pkg\.tar\..*//')
+          # Replace : with _ for git tag (colon not allowed in tags)
+          TAG=$(echo "$VERSION" | tr ':' '_')
           echo "file=$PKG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$TAG" >> $GITHUB_OUTPUT
           echo "date=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
 
       - name: Delete existing release if present
