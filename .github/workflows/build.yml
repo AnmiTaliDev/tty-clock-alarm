@@ -1,25 +1,30 @@
 name: Build tty-clock-git for ALARM
 
 on:
+  schedule:
+    - cron: "0 3 * * 1"
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
 
     container:
-      image: lopsided98/arch-linux-arm:latest
+      image: menci/archlinuxarm:base-devel
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup build environment
+      - name: Update system and install deps
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git ncurses
+          pacman -S --noconfirm git ncurses
 
       - name: Create build user
         run: |
@@ -28,12 +33,39 @@ jobs:
           chown -R builder:builder .
 
       - name: Build package
-        run: |
-          sudo -u builder makepkg -s --noconfirm --noprogressbar
-        working-directory: ${{ github.workspace }}
+        run: sudo -u builder makepkg -s --noconfirm --noprogressbar
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tty-clock-git-aarch64
-          path: "*.pkg.tar.*"
+      - name: Get package info
+        id: pkg
+        run: |
+          PKG=$(ls *.pkg.tar.* | head -n1)
+          VERSION=$(echo $PKG | grep -oP '(?<=-git-)[\d\w.:]+(?=-aarch64)')
+          echo "file=$PKG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "date=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+
+      - name: Delete existing release if present
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          gh release delete "${{ steps.pkg.outputs.tag }}" --yes 2>/dev/null || true
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/${{ steps.pkg.outputs.tag }}" 2>/dev/null || true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.pkg.outputs.tag }}" \
+            "${{ steps.pkg.outputs.file }}" \
+            --title "tty-clock-git ${{ steps.pkg.outputs.version }}" \
+            --notes "Automated build for Arch Linux ARM (aarch64)
+
+          Package: ${{ steps.pkg.outputs.file }}
+          Built:   ${{ steps.pkg.outputs.date }}
+          Arch:    aarch64
+
+          Install:
+          pacman -U ${{ steps.pkg.outputs.file }}" \
+            --latest
