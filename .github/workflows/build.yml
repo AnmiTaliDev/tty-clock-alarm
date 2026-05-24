@@ -16,10 +16,15 @@ jobs:
 
     container:
       image: menci/archlinuxarm:base-devel
+      options: --privileged
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Disable pacman sandbox
+        run: |
+          echo "DisableSandbox" >> /etc/pacman.conf
 
       - name: Update system and install deps
         run: |
