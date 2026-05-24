@@ -29,7 +29,7 @@ jobs:
       - name: Update system and install deps
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm git ncurses
+          pacman -S --noconfirm git ncurses github-cli
 
       - name: Create build user
         run: |
@@ -41,18 +41,13 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: sudo -u builder makepkg -s --noconfirm --noprogressbar
 
-      - name: Find built package
-        run: find $GITHUB_WORKSPACE -name "*.pkg.tar.*" 2>/dev/null || echo "No package found"
-
       - name: Get package info
         id: pkg
         run: |
           PKG=$(find $GITHUB_WORKSPACE -name "*.pkg.tar.*" | head -n1)
           echo "Found: $PKG"
           BASENAME=$(basename "$PKG")
-          # Strip prefix and suffix, keeping epoch+version+pkgrel
           VERSION=$(echo "$BASENAME" | sed 's/^tty-clock-git-//;s/-aarch64\.pkg\.tar\..*//')
-          # Replace : with _ for git tag (colon not allowed in tags)
           TAG=$(echo "$VERSION" | tr ':' '_')
           echo "file=$PKG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
