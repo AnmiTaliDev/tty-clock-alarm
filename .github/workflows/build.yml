@@ -57,24 +57,25 @@ jobs:
       - name: Delete existing release if present
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           gh release delete "${{ steps.pkg.outputs.tag }}" --yes 2>/dev/null || true
           gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/${{ steps.pkg.outputs.tag }}" 2>/dev/null || true
 
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release create "${{ steps.pkg.outputs.tag }}" \
             "${{ steps.pkg.outputs.file }}" \
             --title "tty-clock-git ${{ steps.pkg.outputs.version }}" \
             --notes "Automated build for Arch Linux ARM (aarch64)
 
-          Package: $(basename ${{ steps.pkg.outputs.file }})
+          Package: $(basename "${{ steps.pkg.outputs.file }}")
           Built:   ${{ steps.pkg.outputs.date }}
           Arch:    aarch64
 
           Install:
-          pacman -U $(basename ${{ steps.pkg.outputs.file }})" \
+          pacman -U $(basename "${{ steps.pkg.outputs.file }}")" \
             --latest
