@@ -24,7 +24,7 @@ jobs:
 
       - name: Disable pacman sandbox
         run: |
-          echo "DisableSandbox" >> /etc/pacman.conf
+          sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf
 
       - name: Update system and install deps
         run: |
@@ -38,13 +38,19 @@ jobs:
           chown -R builder:builder .
 
       - name: Build package
+        working-directory: ${{ github.workspace }}
         run: sudo -u builder makepkg -s --noconfirm --noprogressbar
+
+      - name: Find built package
+        run: find $GITHUB_WORKSPACE -name "*.pkg.tar.*" 2>/dev/null || echo "No package found"
 
       - name: Get package info
         id: pkg
         run: |
-          PKG=$(ls *.pkg.tar.* | head -n1)
-          VERSION=$(echo $PKG | grep -oP '(?<=-git-)[\d\w.:]+(?=-aarch64)')
+          PKG=$(find $GITHUB_WORKSPACE -name "*.pkg.tar.*" | head -n1)
+          echo "Found: $PKG"
+          BASENAME=$(basename "$PKG")
+          VERSION=$(echo "$BASENAME" | grep -oP '(?<=-git-)[\d\w.:]+(?=-aarch64)')
           echo "file=$PKG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
@@ -67,10 +73,10 @@ jobs:
             --title "tty-clock-git ${{ steps.pkg.outputs.version }}" \
             --notes "Automated build for Arch Linux ARM (aarch64)
 
-          Package: ${{ steps.pkg.outputs.file }}
+          Package: $(basename ${{ steps.pkg.outputs.file }})
           Built:   ${{ steps.pkg.outputs.date }}
           Arch:    aarch64
 
           Install:
-          pacman -U ${{ steps.pkg.outputs.file }}" \
+          pacman -U $(basename ${{ steps.pkg.outputs.file }})" \
             --latest
