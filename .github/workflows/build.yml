@@ -1,0 +1,39 @@
+name: Build tty-clock-git for ALARM
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+
+    container:
+      image: lopsided98/arch-linux-arm:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup build environment
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git ncurses
+
+      - name: Create build user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          chown -R builder:builder .
+
+      - name: Build package
+        run: |
+          sudo -u builder makepkg -s --noconfirm --noprogressbar
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tty-clock-git-aarch64
+          path: "*.pkg.tar.*"
